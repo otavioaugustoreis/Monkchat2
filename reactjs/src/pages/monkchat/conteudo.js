@@ -1,24 +1,42 @@
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
 import LoadingBar from 'react-top-loading-bar'
- 
 import { ContainerConteudo } from './conteudo.styled'
 import { ChatButton, ChatInput, ChatTextArea } from '../../components/outros/inputs'
-
-import { useState, useRef } from 'react';
-
+import {useState, useRef} from 'react';
+import Cookies from 'js-cookie'
 import Api from '../../service/api';
+import {useHistory} from 'react-router-dom' 
 const api = new Api();
 
 
+function lerUsuariologado(navigation) {
+    let logado = Cookies.get('usuario-logado');
+    if (logado   == null)
+    navigation.push('/');
+    let usuariologado = JSON.parse(logado);
+    return usuariologado;
+}
+
+
+
+
 export default function Conteudo() {
+    const navigation = useHistory();
+    const usuariologado = lerUsuariologado(navigation);
+    
+    const [idAlterado, setIdAlterado] = useState(0);
     const [chat, setChat] = useState([]);
     const [sala, setSala] = useState('');
-    const [usu, setUsu] = useState('');
-    const [msg, setMsg] = useState('')
+    const [usu, setUsu] = useState(usuariologado.nm_usuario);
+    const [msg, setMsg] = useState('')  
 
     const loading = useRef(null);
+    
+
+    let usuarioLogado = Cookies.get('usuario-logado');
+    if (usuarioLogado == null) 
+    navigation.push('/');
 
 
     const validarResposta = (resp) => {
@@ -40,7 +58,8 @@ export default function Conteudo() {
         loading.current.complete();
     }
 
-    const enviarMensagem = async () => {
+    const enviarMensagem = async (event) => {
+        if (event && event.ctrlKey && event.charCode == 13)
         const resp = await api.inserirMensagem(sala, usu, msg);
         if (!validarResposta(resp)) 
             return;
@@ -66,6 +85,20 @@ export default function Conteudo() {
         toast.dark('💕 Sala cadastrada!');
         await carregarMensagens();
     }
+
+    const remover = async (id) => {
+        const r = await api.removerMensagem(id);
+        if(!validarResposta(r))
+        return;
+
+        toast.dark('💕 Mensagem removida');
+        await carregarMensagens();
+}
+
+const editar = async () => {
+    setMsg(item.ds_mensagem);
+    setIdAlterado(item.id_chat);
+}
     
     return (
         <ContainerConteudo>
@@ -79,7 +112,7 @@ export default function Conteudo() {
                     </div>
                     <div>
                         <div className="label">Nick</div>
-                        <ChatInput value={usu} onChange={e => setUsu(e.target.value)} />
+                        <ChatInput value={usu} readOnly={true} />
                     </div>
                     <div>
                         <ChatButton onClick={inserirSala}> Criar </ChatButton>
@@ -88,7 +121,7 @@ export default function Conteudo() {
                 </div>
                 <div className="box-mensagem">
                     <div className="label">Mensagem</div>
-                    <ChatTextArea value={msg} onChange={e => setMsg(e.target.value)} />
+                    <ChatTextArea value={msg} onChange={e => setMsg(e.target.value)} onKeyPress={enviarMensagem} />
                     <ChatButton onClick={enviarMensagem} className="btn-enviar"> Enviar </ChatButton>
                 </div>
             </div>
@@ -103,6 +136,8 @@ export default function Conteudo() {
                     {chat.map(x =>
                         <div key={x.id_chat}>
                             <div className="chat-message">
+                                <div> <img onClick= {() => editar(x)} src="/assets/images/edit.svg" alt=''  style={{cursor: 'pointer'}}/>   </div>
+                                <div> <img onClick= {() => remover(x.id_chat)} src="/assets/images/delete.svg" alt=''  style={{cursor: 'pointer'}}/>   </div>
                                 <div>({new Date(x.dt_mensagem.replace('Z', '')).toLocaleTimeString()})</div>
                                 <div><b>{x.tb_usuario.nm_usuario}</b> fala para <b>Todos</b>:</div>
                                 <div> {x.ds_mensagem} </div>
